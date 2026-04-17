@@ -1,6 +1,6 @@
 'use server'
 
-import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server'
+import { createServerSupabaseClient, createServiceRoleClient, serialize } from '@/lib/supabase/server'
 // createServerSupabaseClient is only used for auth.getUser() in deleteEmployeeBiometric
 import type { Employee, Office } from '@/lib/types'
 
@@ -11,14 +11,14 @@ export async function getEmployees(): Promise<Employee[]> {
     console.error('[employees] getEmployees error:', error)
     throw new Error(error.message)
   }
-  return (data || []) as Employee[]
+  return serialize((data || []) as Employee[])
 }
 
 export async function getOfficesList(): Promise<Office[]> {
   const supabase = await createServiceRoleClient()
   const { data, error } = await supabase.from('offices').select('*').order('name')
   if (error) throw error
-  return (data || []) as Office[]
+  return serialize((data || []) as Office[])
 }
 
 export async function createEmployee(formData: {
@@ -70,7 +70,7 @@ export async function createEmployee(formData: {
     .single()
 
   if (error) throw error
-  return data as Employee
+  return serialize(data as Employee)
 }
 
 export async function updateEmployee(
@@ -118,7 +118,7 @@ export async function updateEmployee(
 
   const { data, error } = await supabase.from('employees').update(updateData).eq('id', id).select().single()
   if (error) throw error
-  return data as Employee
+  return serialize(data as Employee)
 }
 
 export async function toggleEmployeeActive(id: string, isActive: boolean) {
@@ -136,7 +136,7 @@ export async function getEmployeeAttendance(employeeId: string) {
     .order('date', { ascending: false })
     .limit(50)
   if (error) throw error
-  return data
+  return serialize(data)
 }
 
 export async function getDepartmentsList(): Promise<string[]> {

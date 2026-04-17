@@ -1,6 +1,6 @@
 'use server'
 
-import { createServiceRoleClient } from '@/lib/supabase/server'
+import { createServiceRoleClient, serialize } from '@/lib/supabase/server'
 
 export async function getMonthlyReport(month: string) {
   const supabase = await createServiceRoleClient()
@@ -28,7 +28,7 @@ export async function getMonthlyReport(month: string) {
     if (d.getDay() !== 0 && d.getDay() !== 6) workingDays++
   }
 
-  return (employees || []).map((emp) => {
+  return serialize((employees || []).map((emp) => {
     const empLogs = (logs || []).filter((l) => l.employee_id === emp.id)
     const presentDays = empLogs.filter((l) => l.status === 'present').length
     const lateDays = empLogs.filter((l) => l.status === 'late').length
@@ -36,7 +36,7 @@ export async function getMonthlyReport(month: string) {
     const percentage = workingDays > 0 ? ((presentDays + lateDays) / workingDays) * 100 : 0
 
     return { ...emp, presentDays, lateDays, absentDays, workingDays, percentage: percentage.toFixed(1) }
-  })
+  }))
 }
 
 export async function getDepartmentReport(month: string) {
@@ -54,7 +54,7 @@ export async function getDepartmentReport(month: string) {
     .gte('date', startDate)
     .lte('date', endDate)
 
-  return (departments || []).map((dept) => {
+  return serialize((departments || []).map((dept) => {
     const deptEmps = (employees || []).filter((e) => e.department === dept.name)
     const deptEmpIds = new Set(deptEmps.map((e) => e.id))
     const deptLogs = (logs || []).filter((l) => deptEmpIds.has(l.employee_id))
@@ -66,5 +66,5 @@ export async function getDepartmentReport(month: string) {
       totalLate: deptLogs.filter((l) => l.status === 'late').length,
       totalRecords: deptLogs.length,
     }
-  })
+  }))
 }

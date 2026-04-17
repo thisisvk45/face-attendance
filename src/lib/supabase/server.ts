@@ -30,6 +30,15 @@ export async function createServerSupabaseClient() {
 export async function createServiceRoleClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
   )
+}
+
+/**
+ * Strip non-plain prototypes so data is safe to return from server actions.
+ * Next.js server actions only accept plain objects / arrays / primitives.
+ */
+export function serialize<T>(data: T): T {
+  return JSON.parse(JSON.stringify(data))
 }

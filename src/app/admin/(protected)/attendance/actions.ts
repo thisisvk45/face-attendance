@@ -1,6 +1,6 @@
 'use server'
 
-import { createServiceRoleClient } from '@/lib/supabase/server'
+import { createServiceRoleClient, serialize } from '@/lib/supabase/server'
 import { getWeatherForOffices, type DailyWeather, type OfficeWithWeather } from '@/lib/weather'
 
 export type { DailyWeather }
@@ -59,7 +59,7 @@ export async function getAttendanceLogs(filters: {
     results = results.filter((r: any) => r.employee?.name?.toLowerCase().includes(search))
   }
 
-  return results
+  return serialize(results)
 }
 
 export async function manualCheckIn(employeeId: string) {
@@ -109,5 +109,5 @@ export async function getEmployeeOptions() {
     .select('id, name, employee_code')
     .eq('is_active', true)
     .order('name')
-  return data || []
+  return serialize(data || [])
 }

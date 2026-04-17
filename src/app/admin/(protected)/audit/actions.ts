@@ -1,6 +1,6 @@
 'use server'
 
-import { createServiceRoleClient } from '@/lib/supabase/server'
+import { createServiceRoleClient, serialize } from '@/lib/supabase/server'
 
 export interface DeletionLogRow {
   id: string
@@ -20,5 +20,5 @@ export async function getDeletionLogs(): Promise<DeletionLogRow[]> {
     .order('created_at', { ascending: false })
     .limit(500)
   if (error) throw error
-  return (data || []) as DeletionLogRow[]
+  return serialize((data || []) as DeletionLogRow[])
 }

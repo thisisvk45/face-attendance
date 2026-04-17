@@ -1,13 +1,13 @@
 'use server'
 
-import { createServiceRoleClient } from '@/lib/supabase/server'
+import { createServiceRoleClient, serialize } from '@/lib/supabase/server'
 import type { Department } from '@/lib/types'
 
 export async function getDepartments(): Promise<Department[]> {
   const supabase = await createServiceRoleClient()
   const { data, error } = await supabase.from('departments').select('*').order('name')
   if (error) throw error
-  return data as Department[]
+  return serialize(data as Department[])
 }
 
 export async function createDepartment(name: string, head: string) {
@@ -39,11 +39,11 @@ export async function getDepartmentAttendanceSummary() {
     .select('*, employee:employees(department)')
     .eq('date', today)
 
-  return (departments || []).map((dept) => {
+  return serialize((departments || []).map((dept) => {
     const totalEmployees = employees?.filter((e) => e.department === dept.name).length || 0
     const deptLogs = (logs || []).filter((l: any) => l.employee?.department === dept.name)
     const present = deptLogs.filter((l: any) => l.status === 'present').length
     const late = deptLogs.filter((l: any) => l.status === 'late').length
     return { name: dept.name, totalEmployees, present, late, absent: totalEmployees - deptLogs.length }
-  })
+  }))
 }

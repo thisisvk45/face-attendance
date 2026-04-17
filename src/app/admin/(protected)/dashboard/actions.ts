@@ -1,6 +1,6 @@
 'use server'
 
-import { createServiceRoleClient } from '@/lib/supabase/server'
+import { createServiceRoleClient, serialize } from '@/lib/supabase/server'
 import { getCachedDayWeather, type DailyWeather } from '@/lib/weather'
 
 export interface OfficeWeather {
@@ -167,7 +167,7 @@ export async function getDashboardStats() {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, count]) => ({ date, count }))
 
-    return {
+    return serialize({
       totalEmployees: totalEmployees || 0,
       presentCount,
       lateCount,
@@ -176,7 +176,7 @@ export async function getDashboardStats() {
       departmentData,
       trendData,
       officeBreakdown,
-    }
+    })
   } catch (err) {
     console.error('[dashboard] getDashboardStats failed:', err)
     return {
