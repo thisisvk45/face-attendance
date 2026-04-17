@@ -20,8 +20,8 @@ export default function DepartmentsPage() {
   const [name, setName] = useState('')
   const [head, setHead] = useState('')
 
-  const { data: departments = [] } = useQuery({ queryKey: ['departments'], queryFn: getDepartments })
-  const { data: summary = [] } = useQuery({ queryKey: ['dept-summary'], queryFn: getDepartmentAttendanceSummary })
+  const { data: departments = [] } = useQuery({ queryKey: ['departments'], queryFn: () => getDepartments() })
+  const { data: summary = [] } = useQuery({ queryKey: ['dept-summary'], queryFn: () => getDepartmentAttendanceSummary() })
 
   const createMut = useMutation({
     mutationFn: () => createDepartment(name, head),

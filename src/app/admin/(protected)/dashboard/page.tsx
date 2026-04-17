@@ -64,7 +64,7 @@ function StatCard({ title, value, icon, color, subtitle }: {
 export default function DashboardPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['dashboard-stats'],
-    queryFn: getDashboardStats,
+    queryFn: () => getDashboardStats(),
     refetchInterval: 30000,
     retry: 1,
   })

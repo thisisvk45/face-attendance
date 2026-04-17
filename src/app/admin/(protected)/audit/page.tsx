@@ -15,7 +15,7 @@ export default function AuditPage() {
 
   const { data: logs = [], isLoading } = useQuery<DeletionLogRow[]>({
     queryKey: ['deletion-logs'],
-    queryFn: getDeletionLogs,
+    queryFn: () => getDeletionLogs(),
   })
 
   const filtered = useMemo(() => {

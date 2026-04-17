@@ -32,9 +32,9 @@ export default function AttendancePage() {
   const filters = { startDate, endDate, department: filterDept, status: filterStatus, employeeName: searchName, officeId: filterOffice }
 
   const { data: logs = [], isLoading } = useQuery({ queryKey: ['attendance-logs', filters], queryFn: () => getAttendanceLogs(filters) })
-  const { data: departments = [] } = useQuery({ queryKey: ['departments-list'], queryFn: getDepartmentsList })
-  const { data: offices = [] } = useQuery<Office[]>({ queryKey: ['offices-list'], queryFn: getOfficesList })
-  const { data: employees = [] } = useQuery({ queryKey: ['employee-options'], queryFn: getEmployeeOptions })
+  const { data: departments = [] } = useQuery({ queryKey: ['departments-list'], queryFn: () => getDepartmentsList() })
+  const { data: offices = [] } = useQuery<Office[]>({ queryKey: ['offices-list'], queryFn: () => getOfficesList() })
+  const { data: employees = [] } = useQuery({ queryKey: ['employee-options'], queryFn: () => getEmployeeOptions() })
   const { data: weatherData = [] } = useQuery<AttendanceWeather[]>({
     queryKey: ['attendance-weather', startDate, endDate],
     queryFn: () => getWeatherForDateRange(startDate, endDate),

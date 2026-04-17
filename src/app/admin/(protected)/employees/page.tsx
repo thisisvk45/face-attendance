@@ -48,18 +48,18 @@ export default function EmployeesPage() {
 
   const { data: employees = [], isLoading, error: empError } = useQuery({
     queryKey: ['employees'],
-    queryFn: getEmployees,
+    queryFn: () => getEmployees(),
     retry: 1,
   })
 
   const { data: departments = [] } = useQuery({
     queryKey: ['departments-list'],
-    queryFn: getDepartmentsList,
+    queryFn: () => getDepartmentsList(),
   })
 
   const { data: offices = [] } = useQuery<Office[]>({
     queryKey: ['offices-list'],
-    queryFn: getOfficesList,
+    queryFn: () => getOfficesList(),
   })
 
   const officesById = useMemo(() => new Map(offices.map((o) => [o.id, o])), [offices])

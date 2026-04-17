@@ -15,8 +15,8 @@ export default function SettingsPage() {
   const [lateThreshold, setLateThreshold] = useState('')
   const [copied, setCopied] = useState(false)
 
-  const { data: config = {} } = useQuery({ queryKey: ['config'], queryFn: getConfig })
-  const { data: admins = [] } = useQuery({ queryKey: ['admins'], queryFn: getAdmins })
+  const { data: config = {} } = useQuery({ queryKey: ['config'], queryFn: () => getConfig() })
+  const { data: admins = [] } = useQuery({ queryKey: ['admins'], queryFn: () => getAdmins() })
 
   useEffect(() => {
     if (config.late_threshold && !lateThreshold) {
