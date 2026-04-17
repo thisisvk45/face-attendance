@@ -1,9 +1,9 @@
 'use server'
 
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/server'
 
 export async function getMonthlyReport(month: string) {
-  const supabase = await createServerSupabaseClient()
+  const supabase = await createServiceRoleClient()
   const startDate = `${month}-01`
   const endDate = new Date(new Date(startDate).setMonth(new Date(startDate).getMonth() + 1) - 1)
     .toISOString()
@@ -40,7 +40,7 @@ export async function getMonthlyReport(month: string) {
 }
 
 export async function getDepartmentReport(month: string) {
-  const supabase = await createServerSupabaseClient()
+  const supabase = await createServiceRoleClient()
   const startDate = `${month}-01`
   const endDate = new Date(new Date(startDate).setMonth(new Date(startDate).getMonth() + 1) - 1)
     .toISOString()

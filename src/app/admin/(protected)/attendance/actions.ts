@@ -1,6 +1,6 @@
 'use server'
 
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/server'
 import { getWeatherForOffices, type DailyWeather, type OfficeWithWeather } from '@/lib/weather'
 
 export type { DailyWeather }
@@ -14,7 +14,7 @@ export async function getWeatherForDateRange(
   startDate: string,
   endDate: string
 ): Promise<AttendanceWeather[]> {
-  const supabase = await createServerSupabaseClient()
+  const supabase = await createServiceRoleClient()
   const { data: offices } = await supabase
     .from('offices')
     .select('id, name')
@@ -31,7 +31,7 @@ export async function getAttendanceLogs(filters: {
   employeeName?: string
   officeId?: string
 }) {
-  const supabase = await createServerSupabaseClient()
+  const supabase = await createServiceRoleClient()
   let query = supabase
     .from('attendance_logs')
     .select(
@@ -63,7 +63,7 @@ export async function getAttendanceLogs(filters: {
 }
 
 export async function manualCheckIn(employeeId: string) {
-  const supabase = await createServerSupabaseClient()
+  const supabase = await createServiceRoleClient()
   const today = new Date().toISOString().split('T')[0]
 
   const { data: existing } = await supabase
@@ -88,7 +88,7 @@ export async function manualCheckIn(employeeId: string) {
 }
 
 export async function manualCheckOut(logId: string) {
-  const supabase = await createServerSupabaseClient()
+  const supabase = await createServiceRoleClient()
   const { error } = await supabase
     .from('attendance_logs')
     .update({ check_out: new Date().toISOString() })
@@ -97,13 +97,13 @@ export async function manualCheckOut(logId: string) {
 }
 
 export async function deleteAttendanceLog(logId: string) {
-  const supabase = await createServerSupabaseClient()
+  const supabase = await createServiceRoleClient()
   const { error } = await supabase.from('attendance_logs').delete().eq('id', logId)
   if (error) throw error
 }
 
 export async function getEmployeeOptions() {
-  const supabase = await createServerSupabaseClient()
+  const supabase = await createServiceRoleClient()
   const { data } = await supabase
     .from('employees')
     .select('id, name, employee_code')

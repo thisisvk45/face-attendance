@@ -1,17 +1,18 @@
 'use server'
 
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server'
+// createServerSupabaseClient is only used for auth.getUser() in deleteEmployeeBiometric
 import type { Employee, Office } from '@/lib/types'
 
 export async function getEmployees(): Promise<Employee[]> {
-  const supabase = await createServerSupabaseClient()
+  const supabase = await createServiceRoleClient()
   const { data, error } = await supabase.from('employees').select('*').order('name')
   if (error) throw error
   return data as Employee[]
 }
 
 export async function getOfficesList(): Promise<Office[]> {
-  const supabase = await createServerSupabaseClient()
+  const supabase = await createServiceRoleClient()
   const { data, error } = await supabase.from('offices').select('*').order('name')
   if (error) throw error
   return (data || []) as Office[]
@@ -27,8 +28,7 @@ export async function createEmployee(formData: {
   face_descriptor: number[] | null
   face_image_base64: string | null
 }): Promise<Employee> {
-  const supabase = await createServerSupabaseClient()
-  const serviceClient = await createServiceRoleClient()
+  const supabase = await createServiceRoleClient()
 
   if (!formData.office_id) {
     throw new Error('Office is required.')
@@ -41,12 +41,12 @@ export async function createEmployee(formData: {
     const buffer = Buffer.from(base64Data, 'base64')
     const fileName = `${formData.employee_code}_${Date.now()}.jpg`
 
-    const { error: uploadError } = await serviceClient.storage
+    const { error: uploadError } = await supabase.storage
       .from('face-images')
       .upload(fileName, buffer, { contentType: 'image/jpeg' })
 
     if (!uploadError) {
-      const { data: urlData } = serviceClient.storage.from('face-images').getPublicUrl(fileName)
+      const { data: urlData } = supabase.storage.from('face-images').getPublicUrl(fileName)
       faceImageUrl = urlData.publicUrl
     }
   }
@@ -83,8 +83,7 @@ export async function updateEmployee(
     face_image_base64?: string | null
   }
 ): Promise<Employee> {
-  const supabase = await createServerSupabaseClient()
-  const serviceClient = await createServiceRoleClient()
+  const supabase = await createServiceRoleClient()
 
   const updateData: Record<string, unknown> = {
     name: formData.name,
@@ -104,12 +103,12 @@ export async function updateEmployee(
     const buffer = Buffer.from(base64Data, 'base64')
     const fileName = `${formData.employee_code}_${Date.now()}.jpg`
 
-    const { error: uploadError } = await serviceClient.storage
+    const { error: uploadError } = await supabase.storage
       .from('face-images')
       .upload(fileName, buffer, { contentType: 'image/jpeg' })
 
     if (!uploadError) {
-      const { data: urlData } = serviceClient.storage.from('face-images').getPublicUrl(fileName)
+      const { data: urlData } = supabase.storage.from('face-images').getPublicUrl(fileName)
       updateData.face_image_url = urlData.publicUrl
     }
   }
@@ -120,13 +119,13 @@ export async function updateEmployee(
 }
 
 export async function toggleEmployeeActive(id: string, isActive: boolean) {
-  const supabase = await createServerSupabaseClient()
+  const supabase = await createServiceRoleClient()
   const { error } = await supabase.from('employees').update({ is_active: isActive }).eq('id', id)
   if (error) throw error
 }
 
 export async function getEmployeeAttendance(employeeId: string) {
-  const supabase = await createServerSupabaseClient()
+  const supabase = await createServiceRoleClient()
   const { data, error } = await supabase
     .from('attendance_logs')
     .select('*')
@@ -138,7 +137,7 @@ export async function getEmployeeAttendance(employeeId: string) {
 }
 
 export async function getDepartmentsList(): Promise<string[]> {
-  const supabase = await createServerSupabaseClient()
+  const supabase = await createServiceRoleClient()
   const { data } = await supabase.from('departments').select('name').order('name')
   return data?.map((d) => d.name) || []
 }

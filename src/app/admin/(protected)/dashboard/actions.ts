@@ -1,6 +1,6 @@
 'use server'
 
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/server'
 import { backfillWeather, getCachedDayWeather, type DailyWeather } from '@/lib/weather'
 
 export interface OfficeWeather {
@@ -46,7 +46,7 @@ function localTimeInTz(tz: string, now: Date = new Date()) {
 }
 
 export async function getDashboardStats() {
-  const supabase = await createServerSupabaseClient()
+  const supabase = await createServiceRoleClient()
   const today = new Date().toISOString().split('T')[0]
   const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 

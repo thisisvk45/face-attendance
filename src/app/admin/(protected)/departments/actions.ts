@@ -1,35 +1,35 @@
 'use server'
 
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/server'
 import type { Department } from '@/lib/types'
 
 export async function getDepartments(): Promise<Department[]> {
-  const supabase = await createServerSupabaseClient()
+  const supabase = await createServiceRoleClient()
   const { data, error } = await supabase.from('departments').select('*').order('name')
   if (error) throw error
   return data as Department[]
 }
 
 export async function createDepartment(name: string, head: string) {
-  const supabase = await createServerSupabaseClient()
+  const supabase = await createServiceRoleClient()
   const { error } = await supabase.from('departments').insert({ name, head })
   if (error) throw error
 }
 
 export async function updateDepartment(id: string, name: string, head: string) {
-  const supabase = await createServerSupabaseClient()
+  const supabase = await createServiceRoleClient()
   const { error } = await supabase.from('departments').update({ name, head }).eq('id', id)
   if (error) throw error
 }
 
 export async function deleteDepartment(id: string) {
-  const supabase = await createServerSupabaseClient()
+  const supabase = await createServiceRoleClient()
   const { error } = await supabase.from('departments').delete().eq('id', id)
   if (error) throw error
 }
 
 export async function getDepartmentAttendanceSummary() {
-  const supabase = await createServerSupabaseClient()
+  const supabase = await createServiceRoleClient()
   const today = new Date().toISOString().split('T')[0]
 
   const { data: departments } = await supabase.from('departments').select('name')
