@@ -1,7 +1,7 @@
 'use server'
 
 import { createServiceRoleClient } from '@/lib/supabase/server'
-import { backfillWeather, getCachedDayWeather, type DailyWeather } from '@/lib/weather'
+import { getCachedDayWeather, type DailyWeather } from '@/lib/weather'
 
 export interface OfficeWeather {
   temperatureMax: number
@@ -46,113 +46,148 @@ function localTimeInTz(tz: string, now: Date = new Date()) {
 }
 
 export async function getDashboardStats() {
-  const supabase = await createServiceRoleClient()
-  const today = new Date().toISOString().split('T')[0]
-  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  try {
+    const supabase = await createServiceRoleClient()
+    const now = new Date()
 
-  const [
-    { count: totalEmployees },
-    { data: todayLogs },
-    { data: last30DaysLogs },
-    { data: offices },
-    { data: employeesByOffice },
-    { data: recentTwoDayLogs },
-  ] = await Promise.all([
-    supabase.from('employees').select('*', { count: 'exact', head: true }).eq('is_active', true),
-    supabase.from('attendance_logs').select('*, employee:employees(name, department)').eq('date', today),
-    supabase
-      .from('attendance_logs')
-      .select('date, status')
-      .gte('date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]),
-    supabase.from('offices').select('id, name, slug, timezone, late_threshold').order('name'),
-    supabase.from('employees').select('office_id').eq('is_active', true),
-    supabase.from('attendance_logs').select('office_id, status, date').gte('date', yesterday),
-  ])
+    // Fetch offices first — we need timezones to determine each office's "today"
+    const { data: offices } = await supabase
+      .from('offices')
+      .select('id, name, slug, timezone, late_threshold')
+      .order('name')
 
-  const presentCount = todayLogs?.filter((l) => l.status === 'present').length || 0
-  const lateCount = todayLogs?.filter((l) => l.status === 'late').length || 0
-  const absentCount = (totalEmployees || 0) - (todayLogs?.length || 0)
+    // Collect all distinct local-today dates across offices for querying attendance
+    const localTodayByOffice = new Map<string, string>()
+    const allLocalDates = new Set<string>()
+    offices?.forEach((o: { id: string; timezone: string }) => {
+      const ld = localDateInTz(o.timezone, now)
+      localTodayByOffice.set(o.id, ld)
+      allLocalDates.add(ld)
+    })
+    // Fallback: UTC today
+    const utcToday = now.toISOString().split('T')[0]
+    allLocalDates.add(utcToday)
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
-  // Per-office breakdown using each office's local "today"
-  const empCountByOffice: Record<string, number> = {}
-  employeesByOffice?.forEach((e: { office_id: string | null }) => {
-    if (e.office_id) {
-      empCountByOffice[e.office_id] = (empCountByOffice[e.office_id] || 0) + 1
-    }
-  })
+    const [
+      { count: totalEmployees },
+      { data: recentLogs },
+      { data: last30DaysLogs },
+      { data: employeesByOffice },
+    ] = await Promise.all([
+      supabase.from('employees').select('*', { count: 'exact', head: true }).eq('is_active', true),
+      supabase
+        .from('attendance_logs')
+        .select('*, employee:employees(name, department), office:offices(id, name)')
+        .gte('date', yesterday)
+        .order('check_in', { ascending: false }),
+      supabase
+        .from('attendance_logs')
+        .select('date, status')
+        .gte('date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]),
+      supabase.from('employees').select('office_id').eq('is_active', true),
+    ])
 
-  const now = new Date()
-
-  // Backfill + read today's weather for all offices (DB-backed, best-effort)
-  const weatherByOffice = new Map<string, DailyWeather>()
-  if (offices?.length) {
-    const weatherPromises = offices.map(
-      async (o: { id: string; name: string; timezone: string }) => {
-        const localToday = localDateInTz(o.timezone, now)
-        await backfillWeather(o.id, o.name, localToday, localToday)
-        const cached = await getCachedDayWeather(o.id, localToday)
-        if (cached) weatherByOffice.set(o.id, cached)
-      }
-    )
-    await Promise.allSettled(weatherPromises)
-  }
-
-  const officeBreakdown: OfficeBreakdown[] =
-    offices?.map((o: { id: string; name: string; slug: string; timezone: string; late_threshold: string }) => {
-      const localToday = localDateInTz(o.timezone, now)
-      const todayOfficeLogs =
-        recentTwoDayLogs?.filter((l) => l.office_id === o.id && l.date === localToday) || []
-      const present = todayOfficeLogs.filter((l) => l.status === 'present').length
-      const late = todayOfficeLogs.filter((l) => l.status === 'late').length
-      const total = empCountByOffice[o.id] || 0
-      const w = weatherByOffice.get(o.id)
-      return {
-        id: o.id,
-        name: o.name,
-        slug: o.slug,
-        timezone: o.timezone,
-        late_threshold: o.late_threshold,
-        localDate: localToday,
-        localTime: localTimeInTz(o.timezone, now),
-        total,
-        present,
-        late,
-        notCheckedIn: Math.max(0, total - todayOfficeLogs.length),
-        weather: w
-          ? {
-              temperatureMax: w.temperatureMax,
-              temperatureMin: w.temperatureMin,
-              precipitation: w.precipitation,
-              weatherCode: w.weatherCode,
-              description: w.description,
-            }
-          : null,
-      }
+    // Filter today's logs: include a log if its date matches the local today for its office
+    const todayLogs = recentLogs?.filter((l: any) => {
+      const officeToday = l.office_id ? localTodayByOffice.get(l.office_id) : utcToday
+      return l.date === (officeToday || utcToday)
     }) || []
 
-  const deptMap: Record<string, number> = {}
-  todayLogs?.forEach((log: any) => {
-    const dept = log.employee?.department || 'Unknown'
-    deptMap[dept] = (deptMap[dept] || 0) + 1
-  })
-  const departmentData = Object.entries(deptMap).map(([name, count]) => ({ name, count }))
+    const presentCount = todayLogs.filter((l: any) => l.status === 'present').length
+    const lateCount = todayLogs.filter((l: any) => l.status === 'late').length
+    const absentCount = Math.max(0, (totalEmployees || 0) - todayLogs.length)
 
-  const trendMap: Record<string, number> = {}
-  last30DaysLogs?.forEach((log) => {
-    trendMap[log.date] = (trendMap[log.date] || 0) + 1
-  })
-  const trendData = Object.entries(trendMap)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, count]) => ({ date, count }))
+    // Per-office employee count
+    const empCountByOffice: Record<string, number> = {}
+    employeesByOffice?.forEach((e: { office_id: string | null }) => {
+      if (e.office_id) {
+        empCountByOffice[e.office_id] = (empCountByOffice[e.office_id] || 0) + 1
+      }
+    })
 
-  return {
-    totalEmployees: totalEmployees || 0,
-    presentCount,
-    lateCount,
-    absentCount,
-    recentLogs: todayLogs || [],
-    departmentData,
-    trendData,
-    officeBreakdown,
+    // Read cached weather (best-effort, no backfill on dashboard load to keep it fast)
+    const weatherByOffice = new Map<string, DailyWeather>()
+    if (offices?.length) {
+      const weatherReads = offices.map(async (o: { id: string; timezone: string }) => {
+        try {
+          const localToday = localTodayByOffice.get(o.id) || utcToday
+          const cached = await getCachedDayWeather(o.id, localToday)
+          if (cached) weatherByOffice.set(o.id, cached)
+        } catch { /* ignore weather read errors */ }
+      })
+      await Promise.allSettled(weatherReads)
+    }
+
+    const officeBreakdown: OfficeBreakdown[] =
+      offices?.map((o: { id: string; name: string; slug: string; timezone: string; late_threshold: string }) => {
+        const localToday = localTodayByOffice.get(o.id) || utcToday
+        const todayOfficeLogs =
+          recentLogs?.filter((l: any) => l.office_id === o.id && l.date === localToday) || []
+        const present = todayOfficeLogs.filter((l: any) => l.status === 'present').length
+        const late = todayOfficeLogs.filter((l: any) => l.status === 'late').length
+        const total = empCountByOffice[o.id] || 0
+        const w = weatherByOffice.get(o.id)
+        return {
+          id: o.id,
+          name: o.name,
+          slug: o.slug,
+          timezone: o.timezone,
+          late_threshold: o.late_threshold,
+          localDate: localToday,
+          localTime: localTimeInTz(o.timezone, now),
+          total,
+          present,
+          late,
+          notCheckedIn: Math.max(0, total - todayOfficeLogs.length),
+          weather: w
+            ? {
+                temperatureMax: w.temperatureMax,
+                temperatureMin: w.temperatureMin,
+                precipitation: w.precipitation,
+                weatherCode: w.weatherCode,
+                description: w.description,
+              }
+            : null,
+        }
+      }) || []
+
+    const deptMap: Record<string, number> = {}
+    todayLogs.forEach((log: any) => {
+      const dept = log.employee?.department || 'Unknown'
+      deptMap[dept] = (deptMap[dept] || 0) + 1
+    })
+    const departmentData = Object.entries(deptMap).map(([name, count]) => ({ name, count }))
+
+    const trendMap: Record<string, number> = {}
+    last30DaysLogs?.forEach((log: any) => {
+      trendMap[log.date] = (trendMap[log.date] || 0) + 1
+    })
+    const trendData = Object.entries(trendMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, count]) => ({ date, count }))
+
+    return {
+      totalEmployees: totalEmployees || 0,
+      presentCount,
+      lateCount,
+      absentCount,
+      recentLogs: todayLogs,
+      departmentData,
+      trendData,
+      officeBreakdown,
+    }
+  } catch (err) {
+    console.error('[dashboard] getDashboardStats failed:', err)
+    return {
+      totalEmployees: 0,
+      presentCount: 0,
+      lateCount: 0,
+      absentCount: 0,
+      recentLogs: [],
+      departmentData: [],
+      trendData: [],
+      officeBreakdown: [],
+    }
   }
 }

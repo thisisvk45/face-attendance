@@ -7,8 +7,11 @@ import type { Employee, Office } from '@/lib/types'
 export async function getEmployees(): Promise<Employee[]> {
   const supabase = await createServiceRoleClient()
   const { data, error } = await supabase.from('employees').select('*').order('name')
-  if (error) throw error
-  return data as Employee[]
+  if (error) {
+    console.error('[employees] getEmployees error:', error)
+    throw new Error(error.message)
+  }
+  return (data || []) as Employee[]
 }
 
 export async function getOfficesList(): Promise<Office[]> {
@@ -138,8 +141,15 @@ export async function getEmployeeAttendance(employeeId: string) {
 
 export async function getDepartmentsList(): Promise<string[]> {
   const supabase = await createServiceRoleClient()
+  // Try the departments table first, fall back to deriving from employees
   const { data } = await supabase.from('departments').select('name').order('name')
-  return data?.map((d) => d.name) || []
+  if (data && data.length > 0) return data.map((d) => d.name)
+  // Fallback: get unique departments from employees
+  const { data: emps } = await supabase.from('employees').select('department')
+  const deptSet = new Set<string>()
+  ;(emps || []).forEach((e) => { if (e.department) deptSet.add(e.department) })
+  const depts = Array.from(deptSet)
+  return depts.sort()
 }
 
 /**

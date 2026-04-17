@@ -46,9 +46,10 @@ export default function EmployeesPage() {
     setSearchTimeout(setTimeout(() => setDebouncedSearch(val), 300))
   }
 
-  const { data: employees = [], isLoading } = useQuery({
+  const { data: employees = [], isLoading, error: empError } = useQuery({
     queryKey: ['employees'],
     queryFn: getEmployees,
+    retry: 1,
   })
 
   const { data: departments = [] } = useQuery({
@@ -159,7 +160,12 @@ export default function EmployeesPage() {
 
       {/* Table */}
       <div className="bg-white rounded-xl shadow-md overflow-hidden">
-        {isLoading ? (
+        {empError ? (
+          <div className="p-8 text-center">
+            <p className="text-red-500 font-medium">Failed to load employees</p>
+            <p className="text-[#94A3B8] text-sm mt-1">{(empError as Error).message}</p>
+          </div>
+        ) : isLoading ? (
           <SkeletonTable rows={8} cols={9} />
         ) : filtered.length === 0 ? (
           <EmptyState
