@@ -1,36 +1,120 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FaceAttend - Face Recognition Attendance System
 
-## Getting Started
+A complete face recognition-based attendance tracking system built with Next.js 14, Supabase, and face-api.js. All face recognition runs entirely in the browser.
 
-First, run the development server:
+## Tech Stack
+
+- **Framework**: Next.js 14 (App Router)
+- **Database + Auth + Storage**: Supabase
+- **Face Recognition**: face-api.js (SSD MobileNet + face descriptors, browser-side)
+- **UI**: shadcn/ui + Tailwind CSS
+- **State Management**: TanStack Query
+- **Charts**: Recharts
+
+## Setup
+
+### 1. Install Dependencies
+
+```bash
+npm install
+```
+
+### 2. Supabase Setup
+
+1. Create a new project at [supabase.com](https://supabase.com)
+2. Copy your project URL and keys from Settings > API
+
+### 3. Environment Variables
+
+```bash
+cp .env.example .env.local
+```
+
+Edit `.env.local` with your Supabase credentials:
+```
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+```
+
+### 4. Run Database Migrations
+
+Using Supabase CLI:
+```bash
+npx supabase init
+npx supabase link --project-ref your-project-ref
+npx supabase db push
+```
+
+Or manually run the SQL files in `supabase/migrations/` in order via the Supabase SQL Editor.
+
+### 5. Download face-api.js Models
+
+```bash
+mkdir -p public/models
+cd public/models
+
+# Download SSD MobileNet v1
+curl -O https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights/ssd_mobilenetv1_model-weights_manifest.json
+curl -O https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights/ssd_mobilenetv1_model-shard1
+curl -O https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights/ssd_mobilenetv1_model-shard2
+
+# Download Face Landmark 68
+curl -O https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights/face_landmark_68_model-weights_manifest.json
+curl -O https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights/face_landmark_68_model-shard1
+
+# Download Face Recognition
+curl -O https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights/face_recognition_model-weights_manifest.json
+curl -O https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights/face_recognition_model-shard1
+curl -O https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights/face_recognition_model-shard2
+
+cd ../..
+```
+
+### 6. Create First Admin
+
+1. Go to Supabase Dashboard > Authentication > Users
+2. Click "Add User" and create an admin user with email/password
+3. Copy the user's UUID
+4. Go to SQL Editor and run:
+```sql
+INSERT INTO admins (id, email, name, role)
+VALUES ('your-user-uuid', 'admin@company.com', 'Admin Name', 'superadmin');
+```
+
+### 7. Run the App
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Routes
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Route | Access | Description |
+|-------|--------|-------------|
+| `/kiosk` | Public | Face recognition attendance kiosk |
+| `/admin/login` | Public | Admin login page |
+| `/admin/dashboard` | Protected | Attendance dashboard with charts |
+| `/admin/employees` | Protected | Employee management + face registration |
+| `/admin/attendance` | Protected | Attendance logs with filters |
+| `/admin/departments` | Protected | Department management |
+| `/admin/reports` | Protected | Monthly attendance reports |
+| `/admin/settings` | Protected | System settings + admin management |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## How It Works
 
-## Learn More
+1. **Kiosk Mode** (`/kiosk`): Employees face the camera. The system detects their face, extracts a 128-dimensional descriptor, and matches it against stored employee descriptors using Euclidean distance (threshold: 0.5). On match, it records check-in or check-out.
 
-To learn more about Next.js, take a look at the following resources:
+2. **Employee Registration** (`/admin/employees`): Admins capture 3 face images via webcam, average the descriptors, and store the 128-dim vector in PostgreSQL.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+3. **All face recognition runs in the browser** - no external API calls, no server-side ML.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Deployment
 
-## Deploy on Vercel
+Deploy to Vercel:
+```bash
+npm run build
+vercel deploy
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Ensure all environment variables are set in your Vercel project settings.
